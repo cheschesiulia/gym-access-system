@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Monitoring Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .box {
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 18px;
+            cursor: pointer; /* Makes the box clickable */
+        }
+        .real-time-logs {
+            background-color: #90caf9; /* Light Blue */
+            color: #000;
+            width: 400px;
+            height: 100px;
+        }
+        .people-graph {
+            background-color: #f48fb1; /* Light Pink */
+            color: #000;
+            width: 400px;
+            height: 150px;
+        }
+        .people-count {
+            background-color: #a5d6a7; /* Light Green */
+            color: #000;
+            width: 200px;
+        }
+        .fan-control {
+            background-color: #c5e1a5; /* Light Lime */
+            color: #000;
+            width: 200px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gym Monitoring Dashboard</h1>
+    <div class="container">
+        <!-- Real-time Logs -->
+        <div id="realTimeLogs" class="box real-time-logs">
+            Vizualizare in timp real ale log-urilor persoanelor care intra si ies din sala
+        </div>
+
+        <!-- People Count and Fan ON/OFF -->
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <div id="peopleCount" class="box people-count">Numarul de persoane din sala in momentul curent: 0</div>
+            <div id="fanStatus" class="box fan-control" onclick="toggleFan()">Fan OFF</div>
+        </div>
+
+        <!-- People Graph -->
+        <div id="peopleGraph" class="box people-graph">
+            Grafic de vizualizare al numarului de persoane din sala in functie de timpii de check in si check out
+        </div>
+    </div>
+
+    <script>
+        const realTimeLogs = document.getElementById('realTimeLogs');
+        const peopleCount = document.getElementById('peopleCount');
+        const fanStatus = document.getElementById('fanStatus');
+
+        async function fetchPeopleCount() {
+            try {
+                const response = await fetch('/api/people_count');
+                const data = await response.json();
+                peopleCount.innerText = `Numarul de persoane din sala in momentul curent: ${data.people_count}`;
+            } catch (error) {
+                console.error("Error fetching people count:", error);
+            }
+        }
+
+        async function fetchFanStatus() {
+            try {
+                const response = await fetch('/api/control_fan', { method: 'POST' });
+                const data = await response.json();
+                fanStatus.innerText = data.fan_on ? 'Fan ON' : 'Fan OFF';
+                fanStatus.style.backgroundColor = data.fan_on ? '#81c784' : '#c5e1a5'; // Darker green when ON
+            } catch (error) {
+                console.error("Error controlling fan:", error);
+            }
+        }
+
+        async function toggleFan() {
+            try {
+                const response = await fetch('/api/toggle_fan', { method: 'POST' });
+                const data = await response.json();
+                fanStatus.innerText = data.fan_on ? 'Fan ON' : 'Fan OFF';
+                fanStatus.style.backgroundColor = data.fan_on ? '#81c784' : '#c5e1a5';
+            } catch (error) {
+                console.error("Error toggling fan:", error);
+            }
+        }
+
+        async function simulateLogs() {
+            const logs = [
+                "iulia entered the gym",
+                "alex entered the gym",
+                "iulia exited the gym"
+            ];
+            realTimeLogs.innerText = logs.join('\n');
+        }
+
+        // Update dashboard every 5 seconds
+        setInterval(() => {
+            fetchPeopleCount();
+            fetchFanStatus();
+            simulateLogs();
+        }, 5000);
+
+        // Initial load
+        fetchPeopleCount();
+        fetchFanStatus();
+        simulateLogs();
+    </script>
+</body>
+</html>
