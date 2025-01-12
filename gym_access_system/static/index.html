@@ -39,7 +39,7 @@
             background-color: #f48fb1; /* Light Pink */
             color: #000;
             width: 400px;
-            height: 150px;
+            height: 250px;  /* Adjusted height for better visibility */
         }
         .people-count {
             background-color: #a5d6a7; /* Light Green */
@@ -64,27 +64,30 @@
 
         <!-- People Count and Fan ON/OFF -->
         <div style="display: flex; gap: 10px; justify-content: center;">
-            <div id="peopleCount" class="box people-count">Numarul de persoane din sala in momentul curent: 0</div>
+            <div id="peopleCount" class="box people-count">Current number of people in the gym: 0</div>
             <div id="fanStatus" class="box fan-control" onclick="toggleFan()">Fan OFF</div>
         </div>
 
         <!-- People Graph -->
         <div id="peopleGraph" class="box people-graph">
-            Grafic de vizualizare al numarului de persoane din sala in functie de timpii de check in si check out
+            <canvas id="peopleBarChart"></canvas> <!-- Canvas pentru grafic -->
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const realTimeLogs = document.getElementById('realTimeLogs');
         const peopleCount = document.getElementById('peopleCount');
         const fanStatus = document.getElementById('fanStatus');
+
+        let chart = null;  // Variabila globală pentru grafic
 
         // Fetch people count from the server
         async function fetchPeopleCount() {
             try {
                 const response = await fetch('/api/people_count');
                 const data = await response.json();
-                peopleCount.innerText = `Numarul de persoane din sala in momentul curent: ${data.people_count}`;
+                peopleCount.innerText = `Current number of people in the gym: ${data.people_count}`;
             } catch (error) {
                 console.error("Error fetching people count:", error);
             }
@@ -93,9 +96,9 @@
         // Fetch fan status from the server (Updated endpoint)
         async function fetchFanStatus() {
             try {
-                const response = await fetch('/api/get_fan_status');  // Updated to new endpoint
+                const response = await fetch('/api/get_fan_status');
                 const data = await response.json();
-                fanStatus.innerText = data.fan_on ? 'Fan ON' : 'Fan OFF';
+                fanStatus.innerText = data.fan_on ? 'Fan ON. Press to turn it off' : 'Fan OFF. Press to turn it on';
                 fanStatus.style.backgroundColor = data.fan_on ? '#81c784' : '#c5e1a5'; // Darker green when ON
             } catch (error) {
                 console.error("Error controlling fan:", error);
@@ -105,26 +108,24 @@
         // Toggle fan status via the server and send the current status in the request body
         async function toggleFan() {
             try {
-                const currentFanStatus = fanStatus.innerText === 'Fan OFF' ? false : true; // Determine current status
+                const currentFanStatus = fanStatus.innerText.includes('OFF') ? false : true;
 
-                // Send the toggle request to the server with the current fan status
                 const response = await fetch('/api/toggle_fan', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ fan_on: !currentFanStatus }) // Toggle fan status
+                    body: JSON.stringify({ fan_on: !currentFanStatus })
                 });
-                
+
                 const data = await response.json();
-                
-                // Update the button text based on the fan status
+
                 if (data.fan_on) {
-                    fanStatus.innerText = 'Fan ON';
-                    fanStatus.style.backgroundColor = '#81c784';  // Green when ON
+                    fanStatus.innerText = 'Fan ON. Press to turn it off';
+                    fanStatus.style.backgroundColor = '#81c784';  // Darker green when ON
                 } else {
-                    fanStatus.innerText = 'Fan OFF';
-                    fanStatus.style.backgroundColor = '#c5e1a5';  // Light lime when OFF
+                    fanStatus.innerText = 'Fan OFF. Press to turn it on';
+                    fanStatus.style.backgroundColor = '#c5e1a5';  // Lighter green when OFF
                 }
             } catch (error) {
                 console.error("Error toggling fan:", error);
@@ -137,7 +138,7 @@
                 const response = await fetch('/api/access_logs');
                 const data = await response.json();
                 if (data.logs && data.logs.length > 0) {
-                    realTimeLogs.innerText = data.logs.join('\n'); // Display logs as a list
+                    realTimeLogs.innerText = data.logs.join('\n');
                 } else {
                     realTimeLogs.innerText = "No logs available.";
                 }
@@ -147,17 +148,64 @@
             }
         }
 
-        // Periodically update the dashboard
+        // Fetch the graph data for hourly count
+        async function fetchHourlyCount() {
+            try {
+                const response = await fetch('/api/hourly_count');
+                const data = await response.json();
+                updateGraph(data.hourly_count);
+            } catch (error) {
+                console.error("Error fetching hourly count:", error);
+            }
+        }
+
+        // Update the graph (bar chart)
+        function updateGraph(hourlyCount) {
+            const graphDiv = document.getElementById('peopleGraph');
+            
+            // Dacă există deja un grafic, îl actualizăm
+            if (chart) {
+                chart.data.datasets[0].data = hourlyCount;  // Actualizăm datele
+                chart.update();  // Refacem graficul cu datele noi
+            } else {
+                // Creăm un nou canvas doar dacă nu există deja
+                const ctx = document.getElementById('peopleBarChart').getContext('2d');
+                chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),  // Labels pentru fiecare oră
+                        datasets: [{
+                            label: 'Popular times (people count throughout the day)',
+                            data: hourlyCount,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Periodic update the dashboard
         setInterval(() => {
             fetchPeopleCount();
             fetchFanStatus();
             fetchRealTimeLogs();
+            fetchHourlyCount();  // Fetch hourly count for the graph
         }, 2000); // Update every 2 seconds
 
         // Initial load
         fetchPeopleCount();
         fetchFanStatus();
         fetchRealTimeLogs();
+        fetchHourlyCount();
     </script>
 </body>
 </html>
