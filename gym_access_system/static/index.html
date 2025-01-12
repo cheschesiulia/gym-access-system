@@ -25,13 +25,15 @@
             border-radius: 10px;
             text-align: center;
             font-size: 18px;
-            cursor: pointer; /* Makes the box clickable */
+            cursor: pointer;
         }
         .real-time-logs {
             background-color: #90caf9; /* Light Blue */
             color: #000;
             width: 400px;
-            height: 100px;
+            height: 150px;
+            overflow-y: auto; /* Enable scrolling for logs */
+            white-space: pre-line; /* Maintain line breaks */
         }
         .people-graph {
             background-color: #f48fb1; /* Light Pink */
@@ -77,6 +79,7 @@
         const peopleCount = document.getElementById('peopleCount');
         const fanStatus = document.getElementById('fanStatus');
 
+        // Fetch people count from the server
         async function fetchPeopleCount() {
             try {
                 const response = await fetch('/api/people_count');
@@ -87,9 +90,10 @@
             }
         }
 
+        // Fetch fan status from the server (Updated endpoint)
         async function fetchFanStatus() {
             try {
-                const response = await fetch('/api/control_fan', { method: 'POST' });
+                const response = await fetch('/api/get_fan_status');  // Updated to new endpoint
                 const data = await response.json();
                 fanStatus.innerText = data.fan_on ? 'Fan ON' : 'Fan OFF';
                 fanStatus.style.backgroundColor = data.fan_on ? '#81c784' : '#c5e1a5'; // Darker green when ON
@@ -98,37 +102,62 @@
             }
         }
 
+        // Toggle fan status via the server and send the current status in the request body
         async function toggleFan() {
             try {
-                const response = await fetch('/api/toggle_fan', { method: 'POST' });
+                const currentFanStatus = fanStatus.innerText === 'Fan OFF' ? false : true; // Determine current status
+
+                // Send the toggle request to the server with the current fan status
+                const response = await fetch('/api/toggle_fan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fan_on: !currentFanStatus }) // Toggle fan status
+                });
+                
                 const data = await response.json();
-                fanStatus.innerText = data.fan_on ? 'Fan ON' : 'Fan OFF';
-                fanStatus.style.backgroundColor = data.fan_on ? '#81c784' : '#c5e1a5';
+                
+                // Update the button text based on the fan status
+                if (data.fan_on) {
+                    fanStatus.innerText = 'Fan ON';
+                    fanStatus.style.backgroundColor = '#81c784';  // Green when ON
+                } else {
+                    fanStatus.innerText = 'Fan OFF';
+                    fanStatus.style.backgroundColor = '#c5e1a5';  // Light lime when OFF
+                }
             } catch (error) {
                 console.error("Error toggling fan:", error);
             }
         }
 
-        async function simulateLogs() {
-            const logs = [
-                "iulia entered the gym",
-                "alex entered the gym",
-                "iulia exited the gym"
-            ];
-            realTimeLogs.innerText = logs.join('\n');
+        // Fetch real-time logs from the server
+        async function fetchRealTimeLogs() {
+            try {
+                const response = await fetch('/api/access_logs');
+                const data = await response.json();
+                if (data.logs && data.logs.length > 0) {
+                    realTimeLogs.innerText = data.logs.join('\n'); // Display logs as a list
+                } else {
+                    realTimeLogs.innerText = "No logs available.";
+                }
+            } catch (error) {
+                console.error("Error fetching logs:", error);
+                realTimeLogs.innerText = "Error fetching logs.";
+            }
         }
 
-        // Update dashboard every 5 seconds
+        // Periodically update the dashboard
         setInterval(() => {
             fetchPeopleCount();
             fetchFanStatus();
-            simulateLogs();
-        }, 5000);
+            fetchRealTimeLogs();
+        }, 2000); // Update every 2 seconds
 
         // Initial load
         fetchPeopleCount();
         fetchFanStatus();
-        simulateLogs();
+        fetchRealTimeLogs();
     </script>
 </body>
 </html>

@@ -89,6 +89,10 @@ void loop() {
     Serial.println("No card detected within the timeout.");
   }
 
+  // Check if fan state changed
+  checkFanStateChanges();
+
+  // Act accordingly
   fan();
 
   delay(1000); // Optional delay before polling again
@@ -193,18 +197,35 @@ void sendNameToServer(String name) {
   delay(2000);
 }
 
-void handleFanControl() {
-    HTTPClient http;
-    http.begin("http://server-ip/fanStatus");
-    int httpResponseCode = http.GET();
-    if (httpResponseCode == 200) {
-        String response = http.getString();
-        fanOn = (response == "on");
-    }
-    http.end();
+void checkFanStateChanges() {
+  Serial.println("Check if fan state changed");
+  HTTPClient http;
+  http.begin("http://" SERVER_IP ":8000/api/get_fan_status");  // Server URL to fetch fan status
+  int httpResponseCode = http.GET();
+  if (httpResponseCode == 200) {
+    String response = http.getString();
+    Serial.print("Response is: ");
+    Serial.println(response);
+    
+    // Trim any leading or trailing whitespace
+    response.trim();
+    
+    // Check if the response contains "fan_on": true
+    fanOn = (response.indexOf("\"fan_on\": true") >= 0);  // If response contains "fan_on": true, turn the fan on
+    
+    // Debugging output to verify the fanOn state
+    Serial.print("Fan state: ");
+    Serial.println(fanOn ? "ON" : "OFF");
+  } else {
+    // Handle error if HTTP request fails
+    Serial.print("Failed to get fan status. HTTP Response Code: ");
+    Serial.println(httpResponseCode);
+  }
+  http.end();
 }
 
 void fan() {
+  Serial.println("Act fan");
   if (fanOn) {
     digitalWrite(FAN_PIN, HIGH);
   } else {
