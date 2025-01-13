@@ -141,28 +141,33 @@ void sendNameToServer(String name) {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("WiFi connected, preparing to send data...");
 
-    HTTPClient http;
-    String url = "http://" SERVER_IP ":8000/api/entry_exit";  // Server URL with SERVER_IP
+    // Create a WiFiClientSecure object
+    WiFiClientSecure client;
+    client.setCACert(server_cert);  // Set the CA certificate to validate the server
+
+    String url = "https://" SERVER_IP ":8000/api/entry_exit";  // Using HTTPS protocol
     Serial.print("Server URL: ");
     Serial.println(url);
 
-    http.begin(url);
-    http.addHeader("Content-Type", "application/json");
+    if (client.connect(SERVER_IP, 8000)) {
+      // Send the POST request headers
+      String payload = "{\"name\":\"" + name + "\"}";
+      String request = "POST /api/entry_exit HTTP/1.1\r\n";
+      request += "Host: " SERVER_IP "\r\n";
+      request += "Content-Type: application/json\r\n";
+      request += "Content-Length: " + String(payload.length()) + "\r\n";
+      request += "Connection: close\r\n\r\n";
+      request += payload;
 
-    String payload = "{\"name\":\"" + name + "\"}";
-    Serial.print("Payload: ");
-    Serial.println(payload);
+      client.print(request);
+      Serial.println("Request sent to server");
 
-    int httpResponseCode = http.POST(payload);  // Send POST request
-    Serial.print("HTTP Response Code: ");
-    Serial.println(httpResponseCode);
-
-    if (httpResponseCode == 200) {
-      // Success
-      String response = http.getString();  // Get the server response
+      // Read the server response
+      String response = "";
+      while (client.connected() || client.available()) {
+        response += client.readStringUntil('\n');
+      }
       Serial.println("Server response received:");
-
-      // Print the server response
       Serial.println(response);
 
       // Based on the server response, handle permission
@@ -182,14 +187,11 @@ void sendNameToServer(String name) {
         // If there's an unexpected response
         Serial.println("Unexpected response from server: " + response);
       }
-    } else {
-      // Error with the HTTP request
-      Serial.print("Error communicating with server. Response code: ");
-      Serial.println(httpResponseCode);
-    }
 
-    http.end();  // Close the HTTP connection
-    Serial.println("HTTP connection closed.");
+      client.stop();  // Close the connection
+    } else {
+      Serial.println("Failed to connect to the server.");
+    }
   } else {
     // If WiFi is not connected
     Serial.println("WiFi disconnected. Cannot send data.");
