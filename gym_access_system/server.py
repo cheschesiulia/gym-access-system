@@ -107,4 +107,4 @@ def get_hourly_count():
     return jsonify({"hourly_count": hourly_count}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='0.0.0.0', port=8000, ssl_context=('server.crt', 'server.key'))

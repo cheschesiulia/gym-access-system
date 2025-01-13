@@ -2,6 +2,7 @@
 #include <Adafruit_PN532.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 
 #include "config.h"
 
@@ -198,30 +199,34 @@ void sendNameToServer(String name) {
 }
 
 void checkFanStateChanges() {
-  Serial.println("Check if fan state changed");
-  HTTPClient http;
-  http.begin("http://" SERVER_IP ":8000/api/get_fan_status");  // Server URL to fetch fan status
-  int httpResponseCode = http.GET();
-  if (httpResponseCode == 200) {
-    String response = http.getString();
-    Serial.print("Response is: ");
-    Serial.println(response);
-    
-    // Trim any leading or trailing whitespace
-    response.trim();
-    
-    // Check if the response contains "fan_on": true
-    fanOn = (response.indexOf("\"fan_on\": true") >= 0);  // If response contains "fan_on": true, turn the fan on
-    
-    // Debugging output to verify the fanOn state
-    Serial.print("Fan state: ");
-    Serial.println(fanOn ? "ON" : "OFF");
-  } else {
-    // Handle error if HTTP request fails
-    Serial.print("Failed to get fan status. HTTP Response Code: ");
-    Serial.println(httpResponseCode);
-  }
-  http.end();
+    WiFiClientSecure client;
+    client.setCACert(server_cert);
+
+    if (client.connect(SERVER_IP, 8000)) {
+        Serial.println("Connected to server for fan status!");
+
+        String request = "GET /api/get_fan_status HTTP/1.1\r\n";
+        request += "Host: " SERVER_IP "\r\n";
+        request += "Connection: close\r\n\r\n";
+
+        client.print(request);
+        Serial.println("Request sent for fan status");
+
+        // Citește răspunsul
+        while (client.connected() || client.available()) {
+            String response = client.readStringUntil('\n');
+            Serial.println(response);
+            if (response.indexOf("\"fan_on\": true") >= 0) {
+                fanOn = true;
+            } else if (response.indexOf("\"fan_on\": false") >= 0) {
+                fanOn = false;
+            }
+        }
+
+        client.stop();
+    } else {
+        Serial.println("Connection to server failed!");
+    }
 }
 
 void fan() {
