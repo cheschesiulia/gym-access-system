@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 # Set of valid users
 valid_users = {
-    "iulia",  # Example user
+    "iulia", "teo", "bianca"  # Example user
 }
 
 # Set to track who is currently in the gym
